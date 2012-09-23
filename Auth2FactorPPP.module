@@ -46,7 +46,7 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
 		$f->addOption(self::USE_NEVER, __('Never', __FILE__)); 
 		$f->addOption(self::USE_USER, __('Only if a user turns them on for their account', __FILE__)); 
 		$f->addOption(self::USE_ALWAYS, __('Always', __FILE__)); 
-		$f->attr('value', (isset($data['ppp_global_control']) ? (int) $data['ppp_global_control'] : self::USE_USER)); 
+		$f->attr('value', (isset($data['ppp_global_control']) ? (int) $data['ppp_global_control'] : self::USE_NEVER)); 
 		$fields->add($f);
 
 		$f = wire('modules')->get('InputfieldRadios'); 
@@ -112,12 +112,6 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
 				'set'       => array( 'collapsed' => Inputfield::collapsedHidden, ),
 				'addtotemp' => array( 'user' ),
 			),
-			/* 'ppp_login_hicard_printed' => array( */
-			/* 	'type'      => 'FieldtypeInteger', */
-			/* 	'label'     => __("Highest PPP card number printed", __FILE__), */
-			/* 	'set'       => array( 'collapsed' => Inputfield::collapsedYes ), */
-			/* 	'addtotemp' => array( 'user' ), */
-			/* ), */
 		);
 
 
