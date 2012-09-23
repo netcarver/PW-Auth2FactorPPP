@@ -18,5 +18,4 @@ If you prefer to print the codes in a handy credit-card sized format then...
 
 h2. Known problems
 
-* After first installation you need to press the save button on the module summary screen.
 * Uninstall of this module generates some error messages.
