@@ -26,7 +26,7 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
 		return array(
 			'title'    => 'PPP 2-Factor Authentication',
 			'summary'  => "Adds 2-factor authentication to ProcessWire via Steve Gibson's PPP one-time-pad system.",
-			'version'  => 1,
+			'version'  => 100,
 			'author'   => 'Netcarver',
 			'singular' => true,
 			'autoload' => true,
