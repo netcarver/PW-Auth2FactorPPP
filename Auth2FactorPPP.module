@@ -344,39 +344,6 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
 
 
 	/**
-	 * Read the field data and uninstall the field from all templates using it
-	 * then delete the field.
-	 *
-	 * FIXME errors on uninstall 
-	 **/
-	protected function uninstallField( $name, &$fd )
-	{
-		if( count( @$fd['addtotemp'] ) ) {
-			foreach( $fd['addtotemp'] as $template ) {
-				$t = $this->templates->get( $template );
-				if( !$t->id )
-					continue;	# no such template
-
-				if( !$t->fieldgroup->get( $name ) )
-					continue;	# no such field in group
-
-				$t->fieldgroup->remove( $name );
-				$t->fieldgroup->save();
-				//$this->message( "Removed [$name] from template [$template]" );
-			}
-		}
-
-
-		$f = $this->fields->get( $name );
-		if( $f ) {
-			$this->fields->delete( $f );
-		#	$this->message( "Deleted field [$name]" );
-		}
-	}
-
-
-
-	/**
 	 * Adds needed fields and sets up the per-user values needed for each existing user.
 	 **/
 	public function ___install()
@@ -408,7 +375,37 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
 	 **/
 	public function ___uninstall()
 	{
-		foreach( $this->new_fields as $name => $field_data ) $this->uninstallField( $name, $field_data );
+		$fieldgroups_to_save = array();
+
+		// Remove installed fields from fieldgroups...
+		foreach( $this->new_fields as $name => $fd ) {
+			if( count( @$fd['addtotemp'] ) ) {
+				foreach( $fd['addtotemp'] as $template ) {
+					$t = $this->templates->get( $template );
+					if( !$t->id )
+						continue;	# no such template
+
+					if( !$t->fieldgroup->get( $name ) )
+						continue;	# no such field in group
+
+					$t->fieldgroup->remove( $name );
+					$fieldgroups_to_save[ $template ] = $t->fieldgroup;
+				}
+			}
+		}
+
+		// Save changes to the fieldgroups...
+		if( count( $fieldgroups_to_save ) ) {
+			foreach( $fieldgroups_to_save as $name => $fg ) $fg->save();
+		}
+
+		// Now the fields can be deleted...
+		foreach( $this->new_fields as $name => $fd ) {
+			$f = $this->fields->get( $name );
+			if( $f->id ) {
+				$this->fields->delete( $f );
+			}
+		}
 	}
 
 }
