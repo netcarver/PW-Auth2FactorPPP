@@ -16,6 +16,3 @@ If you prefer to print the codes in a handy credit-card sized format then...
 * Use your browser's print option to print these out
 * Trim them to size and store
 
-h2. Known problems
-
-* Uninstall of this module generates some error messages.
