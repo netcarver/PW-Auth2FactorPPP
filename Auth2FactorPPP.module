@@ -38,7 +38,7 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
 
 	public static function getModuleConfigInputfields(array $data)
 	{
-        $fields = new InputfieldWrapper();
+		$fields = new InputfieldWrapper();
 
 		$f = wire('modules')->get('InputfieldRadios'); 
 		$f->attr('name', 'ppp_global_control'); 
@@ -57,18 +57,18 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
 		$f->attr('value', (isset($data['ppp_delivery_medium']) ? (int) $data['ppp_delivery_medium'] : self::DELIVERY_VIA_EMAIL)); 
 		$fields->add($f);
 
-        $f = wire('modules')->get('InputfieldText');
-        $f->name = 'ppp_charset';
+		$f = wire('modules')->get('InputfieldText');
+		$f->name = 'ppp_charset';
 		$f->label = __("The characters that can be in a PPP code", __FILE__);
 		$f->set( "collapsed", Inputfield::collapsedHidden );
 		if(isset($data['ppp_charset'])) 
 			$f->value = $data['ppp_charset'];
 		else
 			$f->value = CryptoPPP::DEFAULT_CHARSET;
-        $fields->add($f);
+		$fields->add($f);
 
-        $f = wire('modules')->get('InputfieldText');
-        $f->name = 'ppp_label';
+		$f = wire('modules')->get('InputfieldText');
+		$f->name = 'ppp_label';
 		$f->label = __("Label to output on passcards", __FILE__);
 		$f->set( "collapsed", Inputfield::collapsedYes );
 		if(isset($data['ppp_label'])) 
@@ -77,12 +77,12 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
 			$f->value = fuel()->config->httpHost;
 		$fields->add($f);
 
-        return $fields; 
-    }
+		return $fields; 
+	}
 
 
 
-    public function __construct() 
+	public function __construct() 
 	{
 		/**
 		 * List of per-user fields to be created and installed by this module.
@@ -115,7 +115,7 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
 		);
 
 
-    }
+	}
 
 
 
@@ -240,7 +240,7 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
 
 		$next = $user->get('ppp_login_nextseq');
 		$vect = $user->get('ppp_login_vector');
-		
+
 		$ppp  = self::USE_ALWAYS == $this->ppp_global_control || $user->get('ppp_login_enable');
 
 		if( $ppp && isset($next) && $vect ) {
@@ -284,7 +284,7 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
 	protected function sendTokenByEmail($token, $seq, $time, $user) {
 
 		$o = CryptoPPP::numberToIndex( $seq );
-		
+
 		$headers[] = "From: {$this->ppp_label} " . __("Token Generator", __FILE__) . " <tokengen@{$this->config->httpHost}>";
 		$headers[] = "MIME-Version: 1.0";
 		$headers[] = "Content-type: text/plain; charset=UTF-8";
@@ -402,9 +402,8 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
 		// Now the fields can be deleted...
 		foreach( $this->new_fields as $name => $fd ) {
 			$f = $this->fields->get( $name );
-			if( $f->id ) {
+			if( $f->id )
 				$this->fields->delete( $f );
-			}
 		}
 	}
 
