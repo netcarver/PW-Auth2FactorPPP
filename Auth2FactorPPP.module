@@ -365,7 +365,7 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
 			$user->ppp_login_nextseq = 0;                     // Start at first token
 			$user->ppp_login_hicard_printed = 0;              // Highest card already printed 0 = none
 		}
-		$user->ppp_login_enable  = false;                     // Tokens off for user
+		$user->ppp_login_enable = false;                      // Tokens off for user
 	}
 
 
