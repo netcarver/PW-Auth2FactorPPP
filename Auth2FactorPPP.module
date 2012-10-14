@@ -148,7 +148,6 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
 			$fields[] = "ppp_login_enable";
 
 		$event->object->set('profileFields', $fields );
-		return;
 	}
 
 
@@ -329,10 +328,10 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
 				foreach( $fd['addtotemp'] as $temp ) {
 					$t = $this->templates->get( $temp );
 					if( !$t->id )
-						continue;	# no such template.
+						continue;	// no such template.
 
 					if( $t->fieldgroup->get( $name ) )
-						continue;	# field already in template
+						continue;	// field already in template
 
 					$t->fieldgroup->add( $f );
 					$t->fieldgroup->save();
@@ -362,11 +361,11 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
 	public function addNewUserFieldValues( User &$user )
 	{
 		if( $user->name !== 'guest' ) {
-			$user->ppp_login_vector  = CryptoPPP::genKeys(1);	// Create init vector for PPP system
-			$user->ppp_login_nextseq = 0;						// Start at first token
-			$user->ppp_login_hicard_printed = 0;				// Highest card already printed 0 = none
+			$user->ppp_login_vector  = CryptoPPP::genKeys(1); // Create init vector for PPP system
+			$user->ppp_login_nextseq = 0;                     // Start at first token
+			$user->ppp_login_hicard_printed = 0;              // Highest card already printed 0 = none
 		}
-		$user->ppp_login_enable  = false;						// Tokens off for user
+		$user->ppp_login_enable  = false;                     // Tokens off for user
 	}
 
 
@@ -383,10 +382,10 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
 				foreach( $fd['addtotemp'] as $template ) {
 					$t = $this->templates->get( $template );
 					if( !$t->id )
-						continue;	# no such template
+						continue;	// no such template
 
 					if( !$t->fieldgroup->get( $name ) )
-						continue;	# no such field in group
+						continue;	// no such field in group
 
 					$t->fieldgroup->remove( $name );
 					$fieldgroups_to_save[ $template ] = $t->fieldgroup;
