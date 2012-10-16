@@ -286,7 +286,6 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
 		$headers[] = "MIME-Version: 1.0";
 		$headers[] = "Content-type: text/plain; charset=UTF-8";
 		$headers[] = "Reply-To: blackhole@".$this->config->httpHost;
-		//$headers[] = 'X-Mailer: PHP/' . phpversion();
 
 		$subject = $this->ppp_label . __(" token for : ", __FILE__) . $o['page'] . " / " . $o['cell'];
 		$body[] = "Seq $seq.";
@@ -361,7 +360,6 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
 		if( $user->name !== 'guest' ) {
 			$user->ppp_login_vector  = CryptoPPP::genKeys(1); // Create init vector for PPP system
 			$user->ppp_login_nextseq = 0;                     // Start at first token
-			$user->ppp_login_hicard_printed = 0;              // Highest card already printed 0 = none
 		}
 		$user->ppp_login_enable = false;                      // Tokens off for user
 	}
