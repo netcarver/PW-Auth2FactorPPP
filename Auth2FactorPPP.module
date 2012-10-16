@@ -120,7 +120,7 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
 	public function init()
 	{
 		if( self::USE_NEVER != $this->ppp_global_control ) {
-			$this->addHookAfter('Session::login', $this, 'loginHook');
+			$this->session->addHookAfter('login', $this, 'loginHook', array('priority' => 10) ); // This hook needs to be executed early
 			$this->addHookAfter('ProcessLogin::buildLoginForm', $this, 'buildLoginFormHook');
 		}
 		$this->addHookBefore('Inputfield::render', $this, 'makeFieldsReadonlyHook' );
@@ -247,9 +247,9 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
 			$ok = 0 === strcmp( $expected, $actual );
 
 			if( $ok ) {
-				$user->set('ppp_login_nextseq', $next + 1 ); // Successful login so move to next token
-				$user->set('ppp_login_lastsent', '' );
-				$user->save();
+				$user->set('ppp_login_nextseq', $next + 1 ) // Successful login so move to next token
+				     ->set('ppp_login_lastsent', '' )
+				     ->save();
 			}
 			else {
 				$event->return = null;	   // Token match failed -- prevent login.
