@@ -13,393 +13,393 @@
  **/
 class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
 {
-	const USE_NEVER  = 0;
-	const USE_USER   = 1;
-	const USE_ALWAYS = 2;
-
-	const DELIVERY_VIA_EMAIL    = 0;
-	const DELIVERY_VIA_PASSCARD = 1;
-
-
-	public static function getModuleInfo()
-	{
-		return array(
-			'title'    => 'PPP 2-Factor Authentication',
-			'summary'  => "Adds 2-factor authentication to ProcessWire via Steve Gibson's PPP one-time-pad system.",
-			'version'  => 101,
-			'author'   => 'Netcarver',
-			'singular' => true,
-			'autoload' => true,
-			'requires' => 'CryptoPPP',
-			'href'     => 'http://www.grc.com/ppp/design.htm'
-		);
-	}
-
-
-	public static function getModuleConfigInputfields(array $data)
-	{
-		$fields = new InputfieldWrapper();
-
-		$f = wire('modules')->get('InputfieldRadios');
-		$f->attr('name', 'ppp_global_control');
-		$f->label = __('Use PPP tokens during login?', __FILE__);
-		$f->addOption(self::USE_NEVER, __('Never', __FILE__));
-		$f->addOption(self::USE_USER, __('Only if a user turns them on for their account', __FILE__));
-		$f->addOption(self::USE_ALWAYS, __('Always', __FILE__));
-		$f->attr('value', (isset($data['ppp_global_control']) ? (int) $data['ppp_global_control'] : self::USE_NEVER));
-		$fields->add($f);
-
-		$f = wire('modules')->get('InputfieldRadios');
-		$f->attr('name', 'ppp_delivery_medium');
-		$f->label = __('How should tokens be delivered?', __FILE__);
-		$f->addOption(self::DELIVERY_VIA_EMAIL, __('By email (if present in user account)', __FILE__));
-		$f->addOption(self::DELIVERY_VIA_PASSCARD, __('By passcard', __FILE__));
-		$f->attr('value', (isset($data['ppp_delivery_medium']) ? (int) $data['ppp_delivery_medium'] : self::DELIVERY_VIA_EMAIL));
-		$fields->add($f);
-
-		$f = wire('modules')->get('InputfieldText');
-		$f->name = 'ppp_charset';
-		$f->label = __("The characters that can be in a PPP code", __FILE__);
-		$f->set( "collapsed", Inputfield::collapsedHidden );
-		if(isset($data['ppp_charset']))
-			$f->value = $data['ppp_charset'];
-		else
-			$f->value = CryptoPPP::DEFAULT_CHARSET;
-		$fields->add($f);
-
-		$f = wire('modules')->get('InputfieldText');
-		$f->name = 'ppp_label';
-		$f->label = __("Label to output on passcards", __FILE__);
-		$f->set( "collapsed", Inputfield::collapsedYes );
-		if(isset($data['ppp_label']))
-			$f->value = $data['ppp_label'];
-		else
-			$f->value = fuel()->config->httpHost;
-		$fields->add($f);
-
-		return $fields;
-	}
-
-
-
-	public function __construct()
-	{
-		/**
-		 * List of per-user fields to be created and installed by this module.
-		 **/
-		$this->new_fields = array(
-			'ppp_login_enable' => array(
-				'type'      => 'FieldtypeCheckbox',
-				'label'     => __("Enable 2-factor PPP authentication for user?", __FILE__),
-				'set'       => array( 'collapsed' => Inputfield::collapsedYes ),
-				'addtotemp' => array( 'user' ),
-			),
-			'ppp_login_vector' => array(
-				'type'      => 'FieldtypeText',
-				'label'     => __("Holds the user's PPP initilisation vector", __FILE__),
-				'set'       => array( 'collapsed' => Inputfield::collapsedYes ),
-				'addtotemp' => array( 'user' ),
-			),
-			'ppp_login_nextseq' => array(
-				'type'      => 'FieldtypeInteger',
-				'label'     => __("The sequence # in the PPP progression", __FILE__),
-				'set'       => array( 'collapsed' => Inputfield::collapsedYes ),
-				'addtotemp' => array( 'user' ),
-			),
-			'ppp_login_lastsent' => array(
-				'type'      => 'FieldtypeText',
-				'label'     => __("Time the last PPP token reminder was sent", __FILE__),
-				'set'       => array( 'collapsed' => Inputfield::collapsedHidden, ),
-				'addtotemp' => array( 'user' ),
-			),
-		);
-	}
-
-
-
-	public function init()
-	{
-		if( self::USE_NEVER != $this->ppp_global_control ) {
-			$this->session->addHookAfter('login', $this, 'loginHook', array('priority' => 10) ); // This hook needs to be executed early
-			$this->addHookAfter('ProcessLogin::buildLoginForm', $this, 'buildLoginFormHook');
-		}
-		$this->addHookBefore('Inputfield::render', $this, 'makeFieldsReadonlyHook' );
-		wire('pages')->addHookBefore('save', $this, 'newUserFieldsHook');
-		$this->addHookBefore('ProcessProfile::execute', $this, 'extendProfileFieldsHook' );
-
-		$this->addHookAfter('Inputfield::render', $this, 'renderPasscardLink');
-	}
-
-
-	/**
-	 * Make sure some of the additional per-user fields appear in the user profile
-	 * so users get the chance of backing up their PPP init vector if they need to or
-	 * switching PPP on & off if the global setting allows it.
-	 **/
-	protected function extendProfileFieldsHook(HookEvent $event)
-	{
-		$fields = $event->object->get('profileFields');
-		$fields[] = "ppp_login_vector";
-		$fields[] = "ppp_login_nextseq";
-
-		if( self::USE_USER == $this->ppp_global_control || NULL == $this->ppp_global_control )
-			$fields[] = "ppp_login_enable";
-
-		$event->object->set('profileFields', $fields );
-	}
-
-
-
-	/**
-	 * Sets up default values in the per-user PPP fields of new users.
-	 **/
-	protected function newUserFieldsHook(HookEvent $event)
-	{
-		$arguments = $event->arguments;
-		$page = $arguments[0];
-
-		if(!$page instanceof User) return;
-		if( $page->get('ppp_login_vector') || 'guest' === $page->get('name') ) return;
-
-		$this->addNewUserFieldValues( $page );
-	}
-
-
-	/**
-	 * Make some of the per-user fields read-only in the profile / user page.
-	 **/
-	protected function makeFieldsReadonlyHook(HookEvent $event)
-	{
-		if( in_array( $event->object->name, array('ppp_login_vector', 'ppp_login_nextseq') ) ) {
-			$event->object->attr( 'readonly', 'readonly' ); // Don't allow GUI to change the user's initialization vector but do allow them to copy it out for backup if needed.
-		}
-	}
-
-
-	/**
-	 * Add link to grc.com's passcard layout and print page.
-	 **/
-	protected function renderPasscardLink(HookEvent $event)
-	{
-		if( 'ppp_login_vector' === $event->object->name && $event->object->value ) {
-
-			$label = urlencode($this->ppp_label);
-			$nexts = $event->object->parent->ppp_login_nextseq->value;
-			$pos   = CryptoPPP::numberToIndex( $nexts );
-			$card  = $pos['page'];
-
-			#$event->return .= htmlspecialchars( "On card: " . var_export( $card , true ) );
-
-			$link = "<a href=\"https://www.grc.com/ppp?1={$event->object->value}&2=$card&5=$label\" target=\"_ppp\"><span class=\"ui-button\">" . __("Show Token Cards", __FILE__) . "</span></a>";
-			$event->return .= $link;
-		}
-	}
-
-
-	/**
-	 * Adds a "Login Token" field to the PW login form.
-	 **/
-	public function buildLoginFormHook(HookEvent $event)
-	{
-		$this->tokenField = $this->modules->get('InputfieldText');
-		$this->tokenField->set('label', __('Login Token', __FILE__));
-		$this->tokenField->attr('id+name', 'login_token');
-		$this->tokenField->attr('class', $event->object->className() . 'Token' );
-		$this->tokenField->attr('placeholder', __('Enter your next passcode', __FILE__) );
-		if( !empty($_POST['login_submit'])) {
-			$username = $_POST['login_name'];
-			$user = $this->users->get("name=".$username);
-			if( $user->id ) {
-				$next = $user->get('ppp_login_nextseq');
-				if( isset($next) ) {
-					$loc = CryptoPPP::numberToIndex( $next );
-					$this->tokenField->attr('placeholder', "Enter token from card {$loc['page']}, cell {$loc['row']}{$loc['col']}" );
-				}
-			}
-		}
-		$event->return->insertBefore($this->tokenField, $event->return->get('login_submit') );
-	}
-
-
-	/**
-	 * Extends the processing of a login to add a token check where possible.
-	 **/
-	protected function loginHook(HookEvent $event)
-	{
-		if( !$event->return )
-			return;		// Username/pass authenitcation failed so no need to check token
-
-		$name = strtolower($event->arguments[0]);
-		$user = $this->users->get($name);
-
-		if( 'guest' === $name || !$user->id || self::USE_NEVER == $this->ppp_global_control )
-			return;		// No need to check PPP token
-
-		$next = $user->get('ppp_login_nextseq');
-		$vect = $user->get('ppp_login_vector');
-
-		$ppp  = self::USE_ALWAYS == $this->ppp_global_control || $user->get('ppp_login_enable');
-
-		if( $ppp && isset($next) && $vect ) {
-
-			$actual   = (string) $_POST['login_token'];
-			$expected = (string) CryptoPPP::getCode($vect, $next, null, 4);
-			$ok = 0 === strcmp( $expected, $actual );
-
-			if( $ok ) {
-				$user->set('ppp_login_nextseq', $next + 1 ) // Successful login so move to next token
-				     ->set('ppp_login_lastsent', '' )
-				     ->save();
-			}
-			else {
-				$event->return = null;	   // Token match failed -- prevent login.
-				$this->session->logout();  // Seem to need to do this to prevent a simple re-press of submit from logging the user in.
-
-				$to = $user->email;
-
-				// TODO validate user email address properly...
-
-				if( (self::DELIVERY_VIA_EMAIL == $this->ppp_delivery_medium) && $to ) {
-					$now      = time();
-					$lastsent = $user->get('ppp_login_lastsent');
-
-					$diff    = (int)$now - (int)$lastsent;
-					$timeout = $diff > 60;
-					if( !$lastsent || $timeout ) {
-						$this->sendTokenByEmail( $expected, $next, $now, $user);
-					}
-				}
-				sleep(2);
-			}
-		}
-	}
-
-
-	/**
-	 * Sends a copy of the needed token to the given user's email address.
-	 **/
-	protected function sendTokenByEmail($token, $seq, $time, $user) {
-
-		$o = CryptoPPP::numberToIndex( $seq );
-
-		$headers[] = "From: {$this->ppp_label} " . __("Token Generator", __FILE__) . " <tokengen@{$this->config->httpHost}>";
-		$headers[] = "MIME-Version: 1.0";
-		$headers[] = "Content-type: text/plain; charset=UTF-8";
-		$headers[] = "Reply-To: blackhole@".$this->config->httpHost;
-
-		$subject = $this->ppp_label . __(" token for : ", __FILE__) . $o['page'] . " / " . $o['cell'];
-		$body[] = "Seq $seq.";
-		$body[] = __("Your token is : ", __FILE__) . $token;
-
-		$sent = mail($user->email, $subject, join("\n",$body), join("\n",$headers));
-		if( $sent ) {
-			$user->set('ppp_login_lastsent', $time );
-			$user->save();
-		}
-
-		return $sent;
-	}
-
-
-
-
-	/**
-	 * Read the field data. Create the field if it doesn't exist and then
-	 * add it to the fieldgroups of any listed templates.
-	 **/
-	protected function installField( $name, &$fd )
-	{
-		$f = $this->fields->get( $name );
-		if( !$f ) {
-			$f = new Field();
-			$f->type = $this->modules->get( $fd['type'] );
-			$f->name = $name;
-			if( @$fd['label'] ) $f->label = $fd['label'];
-			if( count( @$fd['set'] ) )
-				foreach( $fd['set'] as $k => $v )
-					$f->set( $k, $v );
-
-			$f->save();
-
-			if( count( @$fd['addtotemp'] ) ) {
-				foreach( $fd['addtotemp'] as $temp ) {
-					$t = $this->templates->get( $temp );
-					if( !$t->id )
-						continue;	// no such template.
-
-					if( $t->fieldgroup->get( $name ) )
-						continue;	// field already in template
-
-					$t->fieldgroup->add( $f );
-					$t->fieldgroup->save();
-				}
-			}
-		}
-	}
-
-
-
-	/**
-	 * Adds needed fields and sets up the per-user values needed for each existing user.
-	 **/
-	public function ___install()
-	{
-		foreach( $this->new_fields as $name => $field_data ) $this->installField( $name, $field_data );
-		foreach( $this->users as $user ) {
-			$this->addNewUserFieldValues( $user );
-			$user->save();
-		}
-	}
-
-
-	/**
-	 * Setup the default values for a user's ppp fields.
-	 **/
-	public function addNewUserFieldValues( User &$user )
-	{
-		if( $user->name !== 'guest' ) {
-			$user->ppp_login_vector  = CryptoPPP::genKeys(1); // Create init vector for PPP system
-			$user->ppp_login_nextseq = 0;                     // Start at first token
-		}
-		$user->ppp_login_enable = false;                      // Tokens off for user
-	}
-
-
-	/**
-	 * Removes our setup from the PW system.
-	 **/
-	public function ___uninstall()
-	{
-		$fieldgroups_to_save = array();
-
-		// Remove installed fields from fieldgroups...
-		foreach( $this->new_fields as $name => $fd ) {
-			if( count( @$fd['addtotemp'] ) ) {
-				foreach( $fd['addtotemp'] as $template ) {
-					$t = $this->templates->get( $template );
-					if( !$t->id )
-						continue;	// no such template
-
-					if( !$t->fieldgroup->get( $name ) )
-						continue;	// no such field in group
-
-					$t->fieldgroup->remove( $name );
-					$fieldgroups_to_save[ $template ] = $t->fieldgroup;
-				}
-			}
-		}
-
-		// Save changes to the fieldgroups...
-		if( count( $fieldgroups_to_save ) ) {
-			foreach( $fieldgroups_to_save as $name => $fg ) $fg->save();
-		}
-
-		// Now the fields can be deleted...
-		foreach( $this->new_fields as $name => $fd ) {
-			$f = $this->fields->get( $name );
-			if( $f->id )
-				$this->fields->delete( $f );
-		}
-	}
+    const USE_NEVER  = 0;
+    const USE_USER   = 1;
+    const USE_ALWAYS = 2;
+
+    const DELIVERY_VIA_EMAIL    = 0;
+    const DELIVERY_VIA_PASSCARD = 1;
+
+
+    public static function getModuleInfo()
+    {
+        return array(
+            'title'    => 'PPP 2-Factor Authentication',
+            'summary'  => "Adds 2-factor authentication to ProcessWire via Steve Gibson's PPP one-time-pad system.",
+            'version'  => 101,
+            'author'   => 'Netcarver',
+            'singular' => true,
+            'autoload' => true,
+            'requires' => 'CryptoPPP',
+            'href'     => 'http://www.grc.com/ppp/design.htm'
+        );
+    }
+
+
+    public static function getModuleConfigInputfields(array $data)
+    {
+        $fields = new InputfieldWrapper();
+
+        $f = wire('modules')->get('InputfieldRadios');
+        $f->attr('name', 'ppp_global_control');
+        $f->label = __('Use PPP tokens during login?', __FILE__);
+        $f->addOption(self::USE_NEVER, __('Never', __FILE__));
+        $f->addOption(self::USE_USER, __('Only if a user turns them on for their account', __FILE__));
+        $f->addOption(self::USE_ALWAYS, __('Always', __FILE__));
+        $f->attr('value', (isset($data['ppp_global_control']) ? (int) $data['ppp_global_control'] : self::USE_NEVER));
+        $fields->add($f);
+
+        $f = wire('modules')->get('InputfieldRadios');
+        $f->attr('name', 'ppp_delivery_medium');
+        $f->label = __('How should tokens be delivered?', __FILE__);
+        $f->addOption(self::DELIVERY_VIA_EMAIL, __('By email (if present in user account)', __FILE__));
+        $f->addOption(self::DELIVERY_VIA_PASSCARD, __('By passcard', __FILE__));
+        $f->attr('value', (isset($data['ppp_delivery_medium']) ? (int) $data['ppp_delivery_medium'] : self::DELIVERY_VIA_EMAIL));
+        $fields->add($f);
+
+        $f = wire('modules')->get('InputfieldText');
+        $f->name = 'ppp_charset';
+        $f->label = __("The characters that can be in a PPP code", __FILE__);
+        $f->set( "collapsed", Inputfield::collapsedHidden );
+        if(isset($data['ppp_charset']))
+            $f->value = $data['ppp_charset'];
+        else
+            $f->value = CryptoPPP::DEFAULT_CHARSET;
+        $fields->add($f);
+
+        $f = wire('modules')->get('InputfieldText');
+        $f->name = 'ppp_label';
+        $f->label = __("Label to output on passcards", __FILE__);
+        $f->set( "collapsed", Inputfield::collapsedYes );
+        if(isset($data['ppp_label']))
+            $f->value = $data['ppp_label'];
+        else
+            $f->value = fuel()->config->httpHost;
+        $fields->add($f);
+
+        return $fields;
+    }
+
+
+
+    public function __construct()
+    {
+        /**
+         * List of per-user fields to be created and installed by this module.
+         **/
+        $this->new_fields = array(
+            'ppp_login_enable' => array(
+                'type'      => 'FieldtypeCheckbox',
+                'label'     => __("Enable 2-factor PPP authentication for user?", __FILE__),
+                'set'       => array( 'collapsed' => Inputfield::collapsedYes ),
+                'addtotemp' => array( 'user' ),
+            ),
+            'ppp_login_vector' => array(
+                'type'      => 'FieldtypeText',
+                'label'     => __("Holds the user's PPP initilisation vector", __FILE__),
+                'set'       => array( 'collapsed' => Inputfield::collapsedYes ),
+                'addtotemp' => array( 'user' ),
+            ),
+            'ppp_login_nextseq' => array(
+                'type'      => 'FieldtypeInteger',
+                'label'     => __("The sequence # in the PPP progression", __FILE__),
+                'set'       => array( 'collapsed' => Inputfield::collapsedYes ),
+                'addtotemp' => array( 'user' ),
+            ),
+            'ppp_login_lastsent' => array(
+                'type'      => 'FieldtypeText',
+                'label'     => __("Time the last PPP token reminder was sent", __FILE__),
+                'set'       => array( 'collapsed' => Inputfield::collapsedHidden, ),
+                'addtotemp' => array( 'user' ),
+            ),
+        );
+    }
+
+
+
+    public function init()
+    {
+        if( self::USE_NEVER != $this->ppp_global_control ) {
+            $this->session->addHookAfter('login', $this, 'loginHook', array('priority' => 10) ); // This hook needs to be executed early
+            $this->addHookAfter('ProcessLogin::buildLoginForm', $this, 'buildLoginFormHook');
+        }
+        $this->addHookBefore('Inputfield::render', $this, 'makeFieldsReadonlyHook' );
+        wire('pages')->addHookBefore('save', $this, 'newUserFieldsHook');
+        $this->addHookBefore('ProcessProfile::execute', $this, 'extendProfileFieldsHook' );
+
+        $this->addHookAfter('Inputfield::render', $this, 'renderPasscardLink');
+    }
+
+
+    /**
+     * Make sure some of the additional per-user fields appear in the user profile
+     * so users get the chance of backing up their PPP init vector if they need to or
+     * switching PPP on & off if the global setting allows it.
+     **/
+    protected function extendProfileFieldsHook(HookEvent $event)
+    {
+        $fields = $event->object->get('profileFields');
+        $fields[] = "ppp_login_vector";
+        $fields[] = "ppp_login_nextseq";
+
+        if( self::USE_USER == $this->ppp_global_control || NULL == $this->ppp_global_control )
+            $fields[] = "ppp_login_enable";
+
+        $event->object->set('profileFields', $fields );
+    }
+
+
+
+    /**
+     * Sets up default values in the per-user PPP fields of new users.
+     **/
+    protected function newUserFieldsHook(HookEvent $event)
+    {
+        $arguments = $event->arguments;
+        $page = $arguments[0];
+
+        if(!$page instanceof User) return;
+        if( $page->get('ppp_login_vector') || 'guest' === $page->get('name') ) return;
+
+        $this->addNewUserFieldValues( $page );
+    }
+
+
+    /**
+     * Make some of the per-user fields read-only in the profile / user page.
+     **/
+    protected function makeFieldsReadonlyHook(HookEvent $event)
+    {
+        if( in_array( $event->object->name, array('ppp_login_vector', 'ppp_login_nextseq') ) ) {
+            $event->object->attr( 'readonly', 'readonly' ); // Don't allow GUI to change the user's initialization vector but do allow them to copy it out for backup if needed.
+        }
+    }
+
+
+    /**
+     * Add link to grc.com's passcard layout and print page.
+     **/
+    protected function renderPasscardLink(HookEvent $event)
+    {
+        if( 'ppp_login_vector' === $event->object->name && $event->object->value ) {
+
+            $label = urlencode($this->ppp_label);
+            $nexts = $event->object->parent->ppp_login_nextseq->value;
+            $pos   = CryptoPPP::numberToIndex( $nexts );
+            $card  = $pos['page'];
+
+            #$event->return .= htmlspecialchars( "On card: " . var_export( $card , true ) );
+
+            $link = "<a href=\"https://www.grc.com/ppp?1={$event->object->value}&2=$card&5=$label\" target=\"_ppp\"><span class=\"ui-button\">" . __("Show Token Cards", __FILE__) . "</span></a>";
+            $event->return .= $link;
+        }
+    }
+
+
+    /**
+     * Adds a "Login Token" field to the PW login form.
+     **/
+    public function buildLoginFormHook(HookEvent $event)
+    {
+        $this->tokenField = $this->modules->get('InputfieldText');
+        $this->tokenField->set('label', __('Login Token', __FILE__));
+        $this->tokenField->attr('id+name', 'login_token');
+        $this->tokenField->attr('class', $event->object->className() . 'Token' );
+        $this->tokenField->attr('placeholder', __('Enter your next passcode', __FILE__) );
+        if( !empty($_POST['login_submit'])) {
+            $username = $_POST['login_name'];
+            $user = $this->users->get("name=".$username);
+            if( $user->id ) {
+                $next = $user->get('ppp_login_nextseq');
+                if( isset($next) ) {
+                    $loc = CryptoPPP::numberToIndex( $next );
+                    $this->tokenField->attr('placeholder', "Enter token from card {$loc['page']}, cell {$loc['row']}{$loc['col']}" );
+                }
+            }
+        }
+        $event->return->insertBefore($this->tokenField, $event->return->get('login_submit') );
+    }
+
+
+    /**
+     * Extends the processing of a login to add a token check where possible.
+     **/
+    protected function loginHook(HookEvent $event)
+    {
+        if( !$event->return )
+            return;		// Username/pass authenitcation failed so no need to check token
+
+        $name = strtolower($event->arguments[0]);
+        $user = $this->users->get($name);
+
+        if( 'guest' === $name || !$user->id || self::USE_NEVER == $this->ppp_global_control )
+            return;		// No need to check PPP token
+
+        $next = $user->get('ppp_login_nextseq');
+        $vect = $user->get('ppp_login_vector');
+
+        $ppp  = self::USE_ALWAYS == $this->ppp_global_control || $user->get('ppp_login_enable');
+
+        if( $ppp && isset($next) && $vect ) {
+
+            $actual   = (string) $_POST['login_token'];
+            $expected = (string) CryptoPPP::getCode($vect, $next, null, 4);
+            $ok = 0 === strcmp( $expected, $actual );
+
+            if( $ok ) {
+                $user->set('ppp_login_nextseq', $next + 1 ) // Successful login so move to next token
+                    ->set('ppp_login_lastsent', '' )
+                    ->save();
+            }
+            else {
+                $event->return = null;	   // Token match failed -- prevent login.
+                $this->session->logout();  // Seem to need to do this to prevent a simple re-press of submit from logging the user in.
+
+                $to = $user->email;
+
+                // TODO validate user email address properly...
+
+                if( (self::DELIVERY_VIA_EMAIL == $this->ppp_delivery_medium) && $to ) {
+                    $now      = time();
+                    $lastsent = $user->get('ppp_login_lastsent');
+
+                    $diff    = (int)$now - (int)$lastsent;
+                    $timeout = $diff > 60;
+                    if( !$lastsent || $timeout ) {
+                        $this->sendTokenByEmail( $expected, $next, $now, $user);
+                    }
+                }
+                sleep(2);
+            }
+        }
+    }
+
+
+    /**
+     * Sends a copy of the needed token to the given user's email address.
+     **/
+    protected function sendTokenByEmail($token, $seq, $time, $user)
+    {
+        $o = CryptoPPP::numberToIndex( $seq );
+
+        $headers[] = "From: {$this->ppp_label} " . __("Token Generator", __FILE__) . " <tokengen@{$this->config->httpHost}>";
+        $headers[] = "MIME-Version: 1.0";
+        $headers[] = "Content-type: text/plain; charset=UTF-8";
+        $headers[] = "Reply-To: blackhole@".$this->config->httpHost;
+
+        $subject = $this->ppp_label . __(" token for : ", __FILE__) . $o['page'] . " / " . $o['cell'];
+        $body[] = "Seq $seq.";
+        $body[] = __("Your token is : ", __FILE__) . $token;
+
+        $sent = mail($user->email, $subject, join("\n",$body), join("\n",$headers));
+        if( $sent ) {
+            $user->set('ppp_login_lastsent', $time );
+            $user->save();
+        }
+
+        return $sent;
+    }
+
+
+
+
+    /**
+     * Read the field data. Create the field if it doesn't exist and then
+     * add it to the fieldgroups of any listed templates.
+     **/
+    protected function installField( $name, &$fd )
+    {
+        $f = $this->fields->get( $name );
+        if( !$f ) {
+            $f = new Field();
+            $f->type = $this->modules->get( $fd['type'] );
+            $f->name = $name;
+            if( @$fd['label'] ) $f->label = $fd['label'];
+            if( count( @$fd['set'] ) )
+                foreach( $fd['set'] as $k => $v )
+                    $f->set( $k, $v );
+
+            $f->save();
+
+            if( count( @$fd['addtotemp'] ) ) {
+                foreach( $fd['addtotemp'] as $temp ) {
+                    $t = $this->templates->get( $temp );
+                    if( !$t->id )
+                        continue;	// no such template.
+
+                    if( $t->fieldgroup->get( $name ) )
+                        continue;	// field already in template
+
+                    $t->fieldgroup->add( $f );
+                    $t->fieldgroup->save();
+                }
+            }
+        }
+    }
+
+
+
+    /**
+     * Adds needed fields and sets up the per-user values needed for each existing user.
+     **/
+    public function ___install()
+    {
+        foreach( $this->new_fields as $name => $field_data ) $this->installField( $name, $field_data );
+        foreach( $this->users as $user ) {
+            $this->addNewUserFieldValues( $user );
+            $user->save();
+        }
+    }
+
+
+    /**
+     * Setup the default values for a user's ppp fields.
+     **/
+    public function addNewUserFieldValues( User &$user )
+    {
+        if( $user->name !== 'guest' ) {
+            $user->ppp_login_vector  = CryptoPPP::genKeys(1); // Create init vector for PPP system
+            $user->ppp_login_nextseq = 0;                     // Start at first token
+        }
+        $user->ppp_login_enable = false;                      // Tokens off for user
+    }
+
+
+    /**
+     * Removes our setup from the PW system.
+     **/
+    public function ___uninstall()
+    {
+        $fieldgroups_to_save = array();
+
+        // Remove installed fields from fieldgroups...
+        foreach( $this->new_fields as $name => $fd ) {
+            if( count( @$fd['addtotemp'] ) ) {
+                foreach( $fd['addtotemp'] as $template ) {
+                    $t = $this->templates->get( $template );
+                    if( !$t->id )
+                        continue;	// no such template
+
+                    if( !$t->fieldgroup->get( $name ) )
+                        continue;	// no such field in group
+
+                    $t->fieldgroup->remove( $name );
+                    $fieldgroups_to_save[ $template ] = $t->fieldgroup;
+                }
+            }
+        }
+
+        // Save changes to the fieldgroups...
+        if( count( $fieldgroups_to_save ) ) {
+            foreach( $fieldgroups_to_save as $name => $fg ) $fg->save();
+        }
+
+        // Now the fields can be deleted...
+        foreach( $this->new_fields as $name => $fd ) {
+            $f = $this->fields->get( $name );
+            if( $f->id )
+                $this->fields->delete( $f );
+        }
+    }
 
 }
