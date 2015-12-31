@@ -5,7 +5,7 @@
  * An implementation of Steve Gibson's Perfect Paper Passwords (PPP) system.
  *
  * PPP is a one-time-pad cryptographic system that allows easy provision of 2-factor
- * authentication for software applications at a very low-cost. Read more about PPP 
+ * authentication for software applications at a very low-cost. Read more about PPP
  * at http://www.grc.com/ppp/design.htm
  *
  * TODO Require new users to have valid email address if DELIVERY_VIA_EMAIL and (USE_ALWAYS or USE_USER and ppp_login_enable is set for that user)
@@ -40,28 +40,28 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
 	{
 		$fields = new InputfieldWrapper();
 
-		$f = wire('modules')->get('InputfieldRadios'); 
-		$f->attr('name', 'ppp_global_control'); 
+		$f = wire('modules')->get('InputfieldRadios');
+		$f->attr('name', 'ppp_global_control');
 		$f->label = __('Use PPP tokens during login?', __FILE__);
-		$f->addOption(self::USE_NEVER, __('Never', __FILE__)); 
-		$f->addOption(self::USE_USER, __('Only if a user turns them on for their account', __FILE__)); 
-		$f->addOption(self::USE_ALWAYS, __('Always', __FILE__)); 
-		$f->attr('value', (isset($data['ppp_global_control']) ? (int) $data['ppp_global_control'] : self::USE_NEVER)); 
+		$f->addOption(self::USE_NEVER, __('Never', __FILE__));
+		$f->addOption(self::USE_USER, __('Only if a user turns them on for their account', __FILE__));
+		$f->addOption(self::USE_ALWAYS, __('Always', __FILE__));
+		$f->attr('value', (isset($data['ppp_global_control']) ? (int) $data['ppp_global_control'] : self::USE_NEVER));
 		$fields->add($f);
 
-		$f = wire('modules')->get('InputfieldRadios'); 
-		$f->attr('name', 'ppp_delivery_medium'); 
+		$f = wire('modules')->get('InputfieldRadios');
+		$f->attr('name', 'ppp_delivery_medium');
 		$f->label = __('How should tokens be delivered?', __FILE__);
-		$f->addOption(self::DELIVERY_VIA_EMAIL, __('By email (if present in user account)', __FILE__)); 
-		$f->addOption(self::DELIVERY_VIA_PASSCARD, __('By passcard', __FILE__)); 
-		$f->attr('value', (isset($data['ppp_delivery_medium']) ? (int) $data['ppp_delivery_medium'] : self::DELIVERY_VIA_EMAIL)); 
+		$f->addOption(self::DELIVERY_VIA_EMAIL, __('By email (if present in user account)', __FILE__));
+		$f->addOption(self::DELIVERY_VIA_PASSCARD, __('By passcard', __FILE__));
+		$f->attr('value', (isset($data['ppp_delivery_medium']) ? (int) $data['ppp_delivery_medium'] : self::DELIVERY_VIA_EMAIL));
 		$fields->add($f);
 
 		$f = wire('modules')->get('InputfieldText');
 		$f->name = 'ppp_charset';
 		$f->label = __("The characters that can be in a PPP code", __FILE__);
 		$f->set( "collapsed", Inputfield::collapsedHidden );
-		if(isset($data['ppp_charset'])) 
+		if(isset($data['ppp_charset']))
 			$f->value = $data['ppp_charset'];
 		else
 			$f->value = CryptoPPP::DEFAULT_CHARSET;
@@ -71,18 +71,18 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
 		$f->name = 'ppp_label';
 		$f->label = __("Label to output on passcards", __FILE__);
 		$f->set( "collapsed", Inputfield::collapsedYes );
-		if(isset($data['ppp_label'])) 
+		if(isset($data['ppp_label']))
 			$f->value = $data['ppp_label'];
 		else
 			$f->value = fuel()->config->httpHost;
 		$fields->add($f);
 
-		return $fields; 
+		return $fields;
 	}
 
 
 
-	public function __construct() 
+	public function __construct()
 	{
 		/**
 		 * List of per-user fields to be created and installed by this module.
@@ -94,11 +94,11 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
 				'set'       => array( 'collapsed' => Inputfield::collapsedYes ),
 				'addtotemp' => array( 'user' ),
 			),
-			'ppp_login_vector' => array( 
+			'ppp_login_vector' => array(
 				'type'      => 'FieldtypeText',
 				'label'     => __("Holds the user's PPP initilisation vector", __FILE__),
 				'set'       => array( 'collapsed' => Inputfield::collapsedYes ),
-				'addtotemp' => array( 'user' ),	
+				'addtotemp' => array( 'user' ),
 			),
 			'ppp_login_nextseq' => array(
 				'type'      => 'FieldtypeInteger',
@@ -155,8 +155,8 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
 	 **/
 	protected function newUserFieldsHook(HookEvent $event)
 	{
-		$arguments = $event->arguments; 
-		$page = $arguments[0]; 
+		$arguments = $event->arguments;
+		$page = $arguments[0];
 
 		if(!$page instanceof User) return;
 		if( $page->get('ppp_login_vector') || 'guest' === $page->get('name') ) return;
