@@ -93,26 +93,26 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
             'ppp_login_enable' => array(
                 'type'      => 'FieldtypeCheckbox',
                 'label'     => __("Enable 2-factor PPP authentication for user?", __FILE__),
-                'set'       => array( 'collapsed' => Inputfield::collapsedYes),
-                'addtotemp' => array( 'user'),
+                'set'       => array('collapsed' => Inputfield::collapsedYes),
+                'addtotemp' => array('user'),
             ),
             'ppp_login_vector' => array(
                 'type'      => 'FieldtypeText',
                 'label'     => __("Holds the user's PPP initilisation vector", __FILE__),
-                'set'       => array( 'collapsed' => Inputfield::collapsedYes),
-                'addtotemp' => array( 'user'),
+                'set'       => array('collapsed' => Inputfield::collapsedYes),
+                'addtotemp' => array('user'),
             ),
             'ppp_login_nextseq' => array(
                 'type'      => 'FieldtypeInteger',
                 'label'     => __("The sequence # in the PPP progression", __FILE__),
-                'set'       => array( 'collapsed' => Inputfield::collapsedYes),
-                'addtotemp' => array( 'user'),
+                'set'       => array('collapsed' => Inputfield::collapsedYes),
+                'addtotemp' => array('user'),
             ),
             'ppp_login_lastsent' => array(
                 'type'      => 'FieldtypeText',
                 'label'     => __("Time the last PPP token reminder was sent", __FILE__),
-                'set'       => array( 'collapsed' => Inputfield::collapsedHidden,),
-                'addtotemp' => array( 'user'),
+                'set'       => array('collapsed' => Inputfield::collapsedHidden,),
+                'addtotemp' => array('user'),
             ),
         );
     }
@@ -178,8 +178,8 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
      **/
     protected function makeFieldsReadonlyHook(HookEvent $event)
     {
-        if (in_array( $event->object->name, array('ppp_login_vector', 'ppp_login_nextseq'))) {
-            $event->object->attr( 'readonly', 'readonly'); // Don't allow GUI to change the user's initialization vector but do allow them to copy it out for backup if needed.
+        if (in_array($event->object->name, array('ppp_login_vector', 'ppp_login_nextseq'))) {
+            $event->object->attr('readonly', 'readonly'); // Don't allow GUI to change the user's initialization vector but do allow them to copy it out for backup if needed.
         }
     }
 
@@ -192,7 +192,7 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
         if ('ppp_login_vector' === $event->object->name && $event->object->value) {
             $label = urlencode($this->ppp_label);
             $nexts = $event->object->parent->ppp_login_nextseq->value;
-            $pos   = CryptoPPP::numberToIndex( $nexts);
+            $pos   = CryptoPPP::numberToIndex($nexts);
             $card  = $pos['page'];
 
             #$event->return .= htmlspecialchars( "On card: " . var_export( $card , true));
@@ -219,7 +219,7 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
             if ($user->id) {
                 $next = $user->get('ppp_login_nextseq');
                 if (isset($next)) {
-                    $loc = CryptoPPP::numberToIndex( $next);
+                    $loc = CryptoPPP::numberToIndex($next);
                     $this->tokenField->attr('placeholder', "Enter token from card {$loc['page']}, cell {$loc['row']}{$loc['col']}");
                 }
             }
@@ -260,7 +260,6 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
             } else {
                 $event->return = null;	   // Token match failed -- prevent login.
                 $this->session->logout();  // Seem to need to do this to prevent a simple re-press of submit from logging the user in.
-
                 $to = $user->email;
 
                 // TODO validate user email address properly...
@@ -268,11 +267,10 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
                 if ((self::DELIVERY_VIA_EMAIL == $this->ppp_delivery_medium) && $to) {
                     $now      = time();
                     $lastsent = $user->get('ppp_login_lastsent');
-
-                    $diff    = (int)$now - (int)$lastsent;
-                    $timeout = $diff > 60;
+                    $diff     = (int)$now - (int)$lastsent;
+                    $timeout  = $diff > 60;
                     if (!$lastsent || $timeout) {
-                        $this->sendTokenByEmail( $expected, $next, $now, $user);
+                        $this->sendTokenByEmail($expected, $next, $now, $user);
                     }
                 }
                 sleep(2);
@@ -318,7 +316,7 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
         $f = $this->fields->get( $name);
         if (!$f) {
             $f = new Field();
-            $f->type = $this->modules->get( $fd['type']);
+            $f->type = $this->modules->get($fd['type']);
             $f->name = $name;
             if (@$fd['label']) $f->label = $fd['label'];
             if (count( @$fd['set'])) {
@@ -329,18 +327,18 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
 
             $f->save();
 
-            if (count( @$fd['addtotemp'])) {
-                foreach( $fd['addtotemp'] as $temp) {
-                    $t = $this->templates->get( $temp);
+            if (count(@$fd['addtotemp'])) {
+                foreach ($fd['addtotemp'] as $temp) {
+                    $t = $this->templates->get($temp);
                     if (!$t->id) {
                         continue;	// no such template.
                     }
 
-                    if ($t->fieldgroup->get( $name)) {
+                    if ($t->fieldgroup->get($name)) {
                         continue;	// field already in template
                     }
 
-                    $t->fieldgroup->add( $f);
+                    $t->fieldgroup->add($f);
                     $t->fieldgroup->save();
                 }
             }
@@ -354,9 +352,9 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
      **/
     public function ___install()
     {
-        foreach( $this->new_fields as $name => $field_data) $this->installField( $name, $field_data);
-        foreach( $this->users as $user) {
-            $this->addNewUserFieldValues( $user);
+        foreach ($this->new_fields as $name => $field_data) $this->installField( $name, $field_data);
+        foreach ($this->users as $user) {
+            $this->addNewUserFieldValues($user);
             $user->save();
         }
     }
@@ -365,7 +363,7 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
     /**
      * Setup the default values for a user's ppp fields.
      **/
-    public function addNewUserFieldValues( User &$user)
+    public function addNewUserFieldValues(User &$user)
     {
         if ($user->name !== 'guest') {
             $user->ppp_login_vector  = CryptoPPP::genKeys(1); // Create init vector for PPP system
@@ -383,34 +381,34 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
         $fieldgroups_to_save = array();
 
         // Remove installed fields from fieldgroups...
-        foreach( $this->new_fields as $name => $fd) {
+        foreach ($this->new_fields as $name => $fd) {
             if (count( @$fd['addtotemp'])) {
-                foreach( $fd['addtotemp'] as $template) {
-                    $t = $this->templates->get( $template);
+                foreach ($fd['addtotemp'] as $template) {
+                    $t = $this->templates->get($template);
                     if (!$t->id) {
                         continue;	// no such template
                     }
 
-                    if (!$t->fieldgroup->get( $name)) {
+                    if (!$t->fieldgroup->get($name)) {
                         continue;	// no such field in group
                     }
 
-                    $t->fieldgroup->remove( $name);
-                    $fieldgroups_to_save[ $template ] = $t->fieldgroup;
+                    $t->fieldgroup->remove($name);
+                    $fieldgroups_to_save[$template] = $t->fieldgroup;
                 }
             }
         }
 
         // Save changes to the fieldgroups...
-        if (count( $fieldgroups_to_save)) {
-            foreach( $fieldgroups_to_save as $name => $fg) $fg->save();
+        if (count($fieldgroups_to_save)) {
+            foreach ($fieldgroups_to_save as $name => $fg) $fg->save();
         }
 
         // Now the fields can be deleted...
-        foreach( $this->new_fields as $name => $fd) {
-            $f = $this->fields->get( $name);
+        foreach ($this->new_fields as $name => $fd) {
+            $f = $this->fields->get($name);
             if ($f->id) {
-                $this->fields->delete( $f);
+                $this->fields->delete($f);
             }
         }
     }
