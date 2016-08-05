@@ -26,7 +26,7 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
         return array(
             'title'    => 'PPP 2-Factor Authentication',
             'summary'  => "Adds 2-factor authentication to ProcessWire via Steve Gibson's PPP one-time-pad system.",
-            'version'  => 101,
+            'version'  => 110,
             'author'   => 'Netcarver',
             'singular' => true,
             'autoload' => true,
@@ -138,7 +138,7 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
      * so users get the chance of backing up their PPP init vector if they need to or
      * switching PPP on & off if the global setting allows it.
      **/
-    protected function extendProfileFieldsHook(HookEvent $event)
+    protected function extendProfileFieldsHook($event)
     {
         $fields = $event->object->get('profileFields');
         $fields[] = "ppp_login_vector";
@@ -156,7 +156,7 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
     /**
      * Sets up default values in the per-user PPP fields of new users.
      **/
-    protected function newUserFieldsHook(HookEvent $event)
+    protected function newUserFieldsHook($event)
     {
         $arguments = $event->arguments;
         $page = $arguments[0];
@@ -169,14 +169,14 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
             return;
         }
 
-        $this->addNewUserFieldValues( $page);
+        $this->addNewUserFieldValues($page);
     }
 
 
     /**
      * Make some of the per-user fields read-only in the profile / user page.
      **/
-    protected function makeFieldsReadonlyHook(HookEvent $event)
+    protected function makeFieldsReadonlyHook($event)
     {
         if (in_array($event->object->name, array('ppp_login_vector', 'ppp_login_nextseq'))) {
             $event->object->attr('readonly', 'readonly'); // Don't allow GUI to change the user's initialization vector but do allow them to copy it out for backup if needed.
@@ -187,7 +187,7 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
     /**
      * Add link to grc.com's passcard layout and print page.
      **/
-    protected function renderPasscardLink(HookEvent $event)
+    protected function renderPasscardLink($event)
     {
         if ('ppp_login_vector' === $event->object->name && $event->object->value) {
             $label = urlencode($this->ppp_label);
@@ -206,7 +206,7 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
     /**
      * Adds a "Login Token" field to the PW login form.
      **/
-    public function buildLoginFormHook(HookEvent $event)
+    public function buildLoginFormHook($event)
     {
         $this->tokenField = $this->modules->get('InputfieldText');
         $this->tokenField->set('label', __('Login Token', __FILE__));
@@ -231,7 +231,7 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
     /**
      * Extends the processing of a login to add a token check where possible.
      **/
-    protected function loginHook(HookEvent $event)
+    protected function loginHook($event)
     {
         if (!$event->return) {
             return;		// Username/pass authenitcation failed so no need to check token
@@ -311,9 +311,9 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
      * Read the field data. Create the field if it doesn't exist and then
      * add it to the fieldgroups of any listed templates.
      **/
-    protected function installField( $name, &$fd)
+    protected function installField($name, &$fd)
     {
-        $f = $this->fields->get( $name);
+        $f = $this->fields->get($name);
         if (!$f) {
             $f = new Field();
             $f->type = $this->modules->get($fd['type']);
@@ -321,7 +321,7 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
             if (@$fd['label']) $f->label = $fd['label'];
             if (count( @$fd['set'])) {
                 foreach( $fd['set'] as $k => $v) {
-                    $f->set( $k, $v);
+                    $f->set($k, $v);
                 }
             }
 
@@ -363,7 +363,7 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
     /**
      * Setup the default values for a user's ppp fields.
      **/
-    public function addNewUserFieldValues(User &$user)
+    public function addNewUserFieldValues(&$user)
     {
         if ($user->name !== 'guest') {
             $user->ppp_login_vector  = CryptoPPP::genKeys(1); // Create init vector for PPP system
