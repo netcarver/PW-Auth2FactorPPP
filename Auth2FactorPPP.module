@@ -39,8 +39,9 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
     public static function getModuleConfigInputfields(array $data)
     {
         $fields = new InputfieldWrapper();
+        $m = wire('modules');
 
-        $f = wire('modules')->get('InputfieldRadios');
+        $f = $m->get('InputfieldRadios');
         $f->attr('name', 'ppp_global_control');
         $f->label = __('Use PPP tokens during login?', __FILE__);
         $f->addOption(self::USE_NEVER, __('Never', __FILE__));
@@ -49,7 +50,7 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
         $f->attr('value', (isset($data['ppp_global_control']) ? (int) $data['ppp_global_control'] : self::USE_NEVER));
         $fields->add($f);
 
-        $f = wire('modules')->get('InputfieldRadios');
+        $f = $m->get('InputfieldRadios');
         $f->attr('name', 'ppp_delivery_medium');
         $f->label = __('How should tokens be delivered?', __FILE__);
         $f->addOption(self::DELIVERY_VIA_EMAIL, __('By email (if present in user account)', __FILE__));
@@ -57,7 +58,7 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
         $f->attr('value', (isset($data['ppp_delivery_medium']) ? (int) $data['ppp_delivery_medium'] : self::DELIVERY_VIA_EMAIL));
         $fields->add($f);
 
-        $f = wire('modules')->get('InputfieldText');
+        $f = $m->get('InputfieldText');
         $f->name = 'ppp_charset';
         $f->label = __("The characters that can be in a PPP code", __FILE__);
         $f->set( "collapsed", Inputfield::collapsedHidden);
@@ -68,7 +69,7 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
         }
         $fields->add($f);
 
-        $f = wire('modules')->get('InputfieldText');
+        $f = $m->get('InputfieldText');
         $f->name = 'ppp_label';
         $f->label = __("Label to output on passcards", __FILE__);
         $f->set( "collapsed", Inputfield::collapsedYes);
