@@ -124,13 +124,12 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
     {
         if (self::USE_NEVER != $this->ppp_global_control) {
             $this->session->addHookAfter('login', $this, 'loginHook', array('priority' => 10)); // This hook needs to be executed early
-            $this->addHookAfter('ProcessLogin::buildLoginForm', $this, 'buildLoginFormHook');
+            $this->addHookAfter('ProcessLogin::buildLoginForm', $this, 'buildLoginFormHook');   // Add token field to login form
         }
-        $this->addHookBefore('Inputfield::render', $this, 'makeFieldsReadonlyHook');
-        wire('pages')->addHookBefore('save', $this, 'newUserFieldsHook');
-        $this->addHookBefore('ProcessProfile::execute', $this, 'extendProfileFieldsHook');
-
-        $this->addHookAfter('Inputfield::render', $this, 'renderPasscardLink');
+        $this->addHookBefore('Inputfield::render', $this, 'makeFieldsReadonlyHook');       // Init vector should be read-only - allows backup but no fiddling
+        wire('pages')->addHookBefore('save', $this, 'newUserFieldsHook');                  // Add Init vector and count to new user pages
+        $this->addHookBefore('ProcessProfile::execute', $this, 'extendProfileFieldsHook'); // Show PPP fields in user profiles
+        $this->addHookAfter('Inputfield::render', $this, 'renderPasscardLink');            // Adds link to GRC's passcard generation page to the user's page
     }
 
 
