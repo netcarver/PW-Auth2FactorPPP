@@ -123,7 +123,7 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
     public function init()
     {
         if (self::USE_NEVER != $this->ppp_global_control) {
-            $this->session->addHookAfter('login', $this, 'loginHook', array('priority' => 10)); // This hook needs to be executed early
+            $this->session->addHookAfter('login', $this, 'loginHook', array('priority' => 10)); // Check login token: this hook needs to be executed early
             $this->addHookAfter('ProcessLogin::buildLoginForm', $this, 'buildLoginFormHook');   // Add token field to login form
         }
         $this->addHookBefore('Inputfield::render', $this, 'makeFieldsReadonlyHook');       // Init vector should be read-only - allows backup but no fiddling
@@ -415,5 +415,4 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
             }
         }
     }
-
 }
