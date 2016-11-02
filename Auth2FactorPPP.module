@@ -209,11 +209,12 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
      **/
     public function buildLoginFormHook($event)
     {
-        $this->tokenField = $this->modules->get('InputfieldText');
-        $this->tokenField->set('label', __('Login Token', __FILE__));
-        $this->tokenField->attr('id+name', 'login_token');
-        $this->tokenField->attr('class', $event->object->className() . 'Token');
-        $this->tokenField->attr('placeholder', __('Enter your next passcode', __FILE__));
+        $f = $this->modules->get('InputfieldText');
+        $f->set('label', __('Login Token', __FILE__));
+        $f->attr('id+name', 'login_token');
+        $f->attr('class', $event->object->className() . 'Token');
+        $f->attr('placeholder', __('Enter your next passcode', __FILE__));
+        $f->set( "collapsed", Inputfield::collapsedNever);
         if (!empty($_POST['login_submit'])) {
             $username = $_POST['login_name'];
             $user = $this->users->get("name=".$username);
@@ -221,11 +222,11 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
                 $next = $user->get('ppp_login_nextseq');
                 if (isset($next)) {
                     $loc = CryptoPPP::numberToIndex($next);
-                    $this->tokenField->attr('placeholder', "Enter token from card {$loc['page']}, cell {$loc['row']}{$loc['col']}");
+                    $f->attr('placeholder', "Enter token from card {$loc['page']}, cell {$loc['row']}{$loc['col']}");
                 }
             }
         }
-        $event->return->insertBefore($this->tokenField, $event->return->get('login_submit'));
+        $event->return->insertBefore($f, $event->return->get('login_submit'));
     }
 
 
