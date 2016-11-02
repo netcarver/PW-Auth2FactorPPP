@@ -215,7 +215,7 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
         $f->attr('placeholder', __('Enter your next passcode', __FILE__));
         $f->set( "collapsed", Inputfield::collapsedNever);
         if (!empty($_POST['login_submit'])) {
-            $username = $_POST['login_name'];
+            $username = $this->sanitizer->username($_POST['login_name']);
             $user = $this->users->get("name=".$username);
             if ($user->id) {
                 $next = $user->get('ppp_login_nextseq');
@@ -287,16 +287,18 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
     {
         $o = CryptoPPP::numberToIndex( $seq);
 
-        $headers[] = "From: {$this->ppp_label} " . __("Token Generator", __FILE__) . " <tokengen@{$this->config->httpHost}>";
-        $headers[] = "MIME-Version: 1.0";
-        $headers[] = "Content-type: text/plain; charset=UTF-8";
-        $headers[] = "Reply-To: blackhole@".$this->config->httpHost;
-
         $subject = $this->ppp_label . __(" token for : ", __FILE__) . $o['page'] . " / " . $o['cell'];
-        $body[] = "Seq $seq.";
-        $body[] = __("Your token is : ", __FILE__) . $token;
+        $body[] = sprintf(__("Seq %s."), htmlspecialchars($seq));
+        $body[] = sprintf(__("Your token is : %s"), $token);
 
-        $sent = mail($user->email, $subject, join("\n",$body), join("\n",$headers));
+        $mail = wireMail();
+        $mail
+            ->to($user->email)
+            ->from(sprintf(__('Token Generator <%s>'), "blackhole@{$this->config->httpHost}"))
+            ->subject($subject)
+            ->body(join("\n", $body))
+            ;
+        $sent = $mail->send();
         if ($sent) {
             $user->set('ppp_login_lastsent', $time);
             $user->save();
