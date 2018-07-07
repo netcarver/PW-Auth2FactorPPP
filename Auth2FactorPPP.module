@@ -115,7 +115,7 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
             'ppp_login_lastsent'   => [
                 'type'             => 'FieldtypeText',
                 'label'            => __("Time the last PPP token reminder was sent"),
-                'set'              => ['collapsed' => Inputfield::collapsedHidden, 'tag' => 'PPP'],
+                'set'              => ['collapsed' => Inputfield::collapsedHidden, 'tag' => '-PPP'],
                 'add_to_templates' => ['user'],
             ],
         ];
@@ -213,7 +213,7 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
         $f->set('label', __('Login Token'));
         $f->attr('id+name', 'login_token');
         $f->attr('class', $event->object->className() . 'Token');
-        $f->attr('placeholder', __('Enter next passcode'));
+        $f->attr('placeholder', __('Enter next token'));
         $f->set( "collapsed", Inputfield::collapsedNever);
         if (!empty($_POST['login_submit'])) {
             $username = $this->sanitizer->username($_POST['login_name']);
