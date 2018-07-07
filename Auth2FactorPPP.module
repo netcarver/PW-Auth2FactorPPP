@@ -222,12 +222,13 @@ class Auth2FactorPPP extends WireData implements Module, ConfigurableModule
                 $next = $user->get('ppp_login_nextseq');
                 if (isset($next)) {
                     $loc = CryptoPPP::numberToIndex($next);
-                    $f->attr('placeholder', "Enter token from card {$loc['page']}, cell {$loc['row']}{$loc['col']}");
                     $f->attr('placeholder', sprintf(__("Enter token from card %s, cell %s %s"), $loc['page'], $loc['row'], $loc['col']));
                 }
             }
         }
-        $event->return->insertBefore($f, $event->return->get('login_submit'));
+
+        $login_form = $event->return;
+        $login_form->insertBefore($f, $login_form->get('login_submit'));
     }
 
 
