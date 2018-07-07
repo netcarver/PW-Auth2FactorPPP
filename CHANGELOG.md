@@ -1,5 +1,12 @@
 # **Changelog** - [Keep a Changelog]
 
+## [Upcoming]
+
+
+## [2.0.1] - 2018-07-07
+- Add Changelog file to project.
+
+
 ## [2.0.0] - 2018-07-07
 - Make strings translatable.
 - Support PW3+.
@@ -38,7 +45,8 @@
 
 [Semantic Versioning]: https://semver.org/spec/v2.0.0.html
 [Keep a Changelog]:    http://keepachangelog.com/en/1.0.0/
-[Upcoming]: https://github.com/netcarver/ModuleReleaseNotes/compare/2.0.0...HEAD
+[Upcoming]: https://github.com/netcarver/ModuleReleaseNotes/compare/2.0.1...HEAD
+[2.0.1]: https://github.com/netcarver/ModuleReleaseNotes/compare/2.0.0...2.0.1
 [2.0.0]: https://github.com/netcarver/ModuleReleaseNotes/compare/1.2.0...2.0.0
 [1.2.0]: https://github.com/netcarver/ModuleReleaseNotes/compare/1.1.0...1.2.0
 [1.1.0]: https://github.com/netcarver/ModuleReleaseNotes/compare/1.0.1...1.1.0
