@@ -6,9 +6,9 @@ PPP is a one-time-pad cryptographic system that allows easy provision of 2-facto
 authentication for software applications at a very low-cost. Read more about PPP [here.](http://www.grc.com/ppp/design.htm)
 
 This module requires the [CryptoPPP library module](https://raw.github.com/netcarver/PW-CryptoPPP/master/CryptoPPP.module) to
-be installed and then uses it to add 2-factor authentication to ProcessWire. On installation and activation you will see an
-additional 'Token' field in the login form and you will have to enter the right one-time-code into this field to be able to
-login. These tokens can either be printed out in advance and carried on your person or they can be delivered by email.
+be installed and then uses it to add 2-factor authentication to ProcessWire. Upon installation and activation you will see an
+additional 'Token' field in the login form. You will have to enter the right one-time-code into this field to be able to
+login. These tokens can either be printed out in advance and carried on your person, or they can be delivered by email.
 
 
 ## Printing PPP One-Time-Pad Cards.
